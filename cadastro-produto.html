@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mercearia da Esquina — Cadastrar produto</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-sem-analytics data-sem-carrinho>
+
+<header class="cabecalho">
+  <div class="barra">
+    <a href="index.html" class="marca">
+      <span class="icone">🧺</span>
+      <span>
+        <span class="nome">Mercearia da Esquina</span>
+        <span class="slogan">do seu jeito, desde sempre</span>
+      </span>
+    </a>
+    <nav class="menu" aria-label="Navegação principal"></nav>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <span class="etiqueta">Administração</span>
+    <h1>Cadastrar produto</h1>
+    <p>Preencha os dados na primeira aba e envie a foto na aba Imagem. O produto aparece na página Produtos e no carrossel do Início.</p>
+  </section>
+
+  <div id="bloqueio" class="caixote vazio" hidden></div>
+
+  <div id="area-admin" hidden>
+    <div class="cadastro-grade">
+      <form id="form-produto" class="caixote" novalidate>
+        <div class="abas-form" role="tablist" aria-label="Seções do cadastro">
+          <button type="button" role="tab" id="tab-dados" aria-controls="painel-dados" aria-selected="true">Dados do produto</button>
+          <button type="button" role="tab" id="tab-imagem" aria-controls="painel-imagem" aria-selected="false" tabindex="-1">Imagem</button>
+        </div>
+
+        <div class="aba-painel" id="painel-dados" role="tabpanel" aria-labelledby="tab-dados">
+          <div class="campo"><label for="p-nome">Nome do produto</label>
+            <input type="text" id="p-nome" maxlength="60" placeholder="Ex.: Pão de Queijo 500g"></div>
+          <div class="campo"><label for="p-descricao">Descrição</label>
+            <textarea id="p-descricao" maxlength="300" placeholder="Conte em poucas palavras o que é o produto"></textarea>
+            <span class="contagem" id="contagem">0 / 300</span></div>
+          <div class="campos-duplos">
+            <div class="campo"><label for="p-categoria">Categoria</label><select id="p-categoria"></select></div>
+            <div class="campo"><label for="p-unidade">Vendido por</label><select id="p-unidade"></select></div>
+          </div>
+          <div class="campos-duplos">
+            <div class="campo"><label for="p-preco">Preço (R$)</label>
+              <input type="text" inputmode="decimal" id="p-preco" placeholder="0,00"></div>
+            <div class="campo"><label for="p-emoji">Ícone (emoji, opcional)</label>
+              <input type="text" id="p-emoji" maxlength="4" placeholder="🍞"></div>
+          </div>
+          <button type="button" class="botao secundario" id="ir-imagem">Próximo: imagem →</button>
+        </div>
+
+        <div class="aba-painel" id="painel-imagem" role="tabpanel" aria-labelledby="tab-imagem" hidden>
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Escolher imagem do produto">
+            <div class="grande" aria-hidden="true">🖼️</div>
+            <p><strong>Clique para escolher</strong> ou arraste a foto até aqui.</p>
+            <p class="dica">JPG, PNG ou WebP. A foto é reduzida automaticamente (máx. 2 MB depois disso).</p>
+          </div>
+          <input type="file" id="p-imagem" accept="image/jpeg,image/png,image/webp" class="sr-only" tabindex="-1">
+          <div class="dropzone-previa" id="previa-img" hidden>
+            <img alt="Prévia da imagem escolhida" id="previa-img-el">
+            <button type="button" class="botao secundario" id="tirar-imagem">Remover imagem</button>
+          </div>
+          <p class="dica">Sem imagem, o site usa o ícone (ou o da categoria).</p>
+        </div>
+
+        <p class="mensagem-login" id="msg-produto" role="status"></p>
+        <button type="submit" class="botao" id="botao-salvar">Cadastrar produto</button>
+      </form>
+
+      <aside class="previa">
+        <h3>Pré-visualização</h3>
+        <div id="previa"></div>
+      </aside>
+    </div>
+
+    <section style="margin-top:2.4rem;">
+      <h2>Produtos cadastrados por você</h2>
+      <div class="caixote">
+        <div id="lista-extras"></div>
+        <p id="extras-vazio" class="vazio">Nenhum produto cadastrado ainda.</p>
+      </div>
+    </section>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <div class="conteudo">
+    <span>© 2026 Mercearia da Esquina — Todos os direitos reservados</span>
+    <a href="produtos.html">Ver página de produtos</a>
+  </div>
+</footer>
+
+<script src="js/site.js"></script>
+<script>
+
+Mercearia.pronto.then(() => {
+  const { ESTADO, api, esc, formatarReal, imagemProdutoHTML, avisar } = Mercearia;
+  const $ = (id) => document.getElementById(id);
+
+  if (!ESTADO.usuario || !ESTADO.usuario.admin) {
+    const b = $('bloqueio'); b.hidden = false;
+    b.innerHTML = !ESTADO.servidorOk ? 'Não foi possível falar com o servidor.'
+      : !ESTADO.usuario ? 'Esta página é só para a administração. <a href="login.html">Entre com sua conta</a>.'
+      : 'Sua conta não tem permissão de administrador.';
+    return;
+  }
+  $('area-admin').hidden = false;
+  $('p-categoria').innerHTML = ESTADO.categorias.map((c) => '<option>' + esc(c.nome) + '</option>').join('');
+  $('p-unidade').innerHTML = ESTADO.unidades.map((u) => '<option>' + esc(u) + '</option>').join('');
+
+  /* ----- abas ----- */
+  const abas = [['tab-dados', 'painel-dados'], ['tab-imagem', 'painel-imagem']];
+  function mostrarAba(i) {
+    abas.forEach(([t, p], k) => {
+      $(t).setAttribute('aria-selected', String(k === i)); $(t).tabIndex = k === i ? 0 : -1; $(p).hidden = k !== i;
+    });
+  }
+  abas.forEach(([t], i) => {
+    $(t).addEventListener('click', () => mostrarAba(i));
+    $(t).addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const j = (i + 1) % 2; mostrarAba(j); $(abas[j][0]).focus(); }
+    });
+  });
+  $('ir-imagem').addEventListener('click', () => mostrarAba(1));
+
+  let imagemBlob = null, imagemUrl = '';
+  function msg(t, erro) { const m = $('msg-produto'); m.textContent = t; m.classList.toggle('erro', !!erro); m.classList.add('mostrar'); }
+  function reduzir(arquivo) {
+    return new Promise((ok, falha) => {
+      const url = URL.createObjectURL(arquivo); const img = new Image();
+      img.onload = () => {
+        const f = Math.min(1, 800 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas'); c.width = Math.round(img.width * f); c.height = Math.round(img.height * f);
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob((b) => b ? ok(b) : falha(new Error('x')), 'image/jpeg', 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); falha(new Error('x')); };
+      img.src = url;
+    });
+  }
+  async function escolher(arquivo) {
+    if (!arquivo) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(arquivo.type)) { msg('Escolha uma imagem JPG, PNG ou WebP.', true); return; }
+    try {
+      const b = await reduzir(arquivo);
+      if (b.size > 2 * 1024 * 1024) { msg('A imagem continua grande demais. Tente outra.', true); return; }
+      if (imagemUrl) URL.revokeObjectURL(imagemUrl);
+      imagemBlob = b; imagemUrl = URL.createObjectURL(b);
+      $('previa-img-el').src = imagemUrl; $('previa-img').hidden = false;
+      $('msg-produto').classList.remove('mostrar'); previa();
+    } catch (e) { msg('Não foi possível ler essa imagem.', true); }
+  }
+  function tirar() {
+    imagemBlob = null; if (imagemUrl) URL.revokeObjectURL(imagemUrl); imagemUrl = '';
+    $('previa-img').hidden = true; $('p-imagem').value = ''; previa();
+  }
+  const dz = $('dropzone');
+  dz.addEventListener('click', () => $('p-imagem').click());
+  dz.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('p-imagem').click(); } });
+  ['dragenter', 'dragover'].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add('sobre'); }));
+  ['dragleave', 'drop'].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove('sobre'); }));
+  dz.addEventListener('drop', (e) => escolher(e.dataTransfer.files[0]));
+  $('p-imagem').addEventListener('change', (e) => escolher(e.target.files[0]));
+  $('tirar-imagem').addEventListener('click', tirar);
+
+  function previa() {
+    const cat = $('p-categoria').value;
+    const p = {
+      nome: $('p-nome').value.trim() || 'Nome do produto', descricao: $('p-descricao').value.trim() || 'A descrição aparece aqui.',
+      categoria: cat, preco: parseFloat($('p-preco').value.replace(',', '.')) || 0, unidade: $('p-unidade').value,
+      emoji: $('p-emoji').value.trim(), imagem: imagemUrl,
+    };
+    $('previa').innerHTML = '<article class="produto"><div class="produto-imagem">' + imagemProdutoHTML(p) + '</div>' +
+      '<span class="produto-cat">' + esc(p.categoria) + '</span><h3>' + esc(p.nome) + '</h3><p class="produto-desc">' + esc(p.descricao) + '</p>' +
+      '<div class="linha-preco"><span class="preco">' + formatarReal(p.preco) + '</span><span class="unidade">por ' + esc(p.unidade) + '</span></div></article>';
+  }
+  ['p-nome', 'p-descricao', 'p-categoria', 'p-unidade', 'p-preco', 'p-emoji'].forEach((id) => $(id).addEventListener('input', previa));
+  $('p-descricao').addEventListener('input', () => { $('contagem').textContent = $('p-descricao').value.length + ' / 300'; });
+  previa();
+
+  function lista() {
+    const extras = ESTADO.produtos.filter((p) => !p.padrao).reverse();
+    $('extras-vazio').style.display = extras.length ? 'none' : 'block';
+    $('lista-extras').innerHTML = extras.map((p) =>
+      '<div class="linha-extra"><div class="item-img">' + imagemProdutoHTML(p) + '</div>' +
+      '<div><strong>' + esc(p.nome) + '</strong><div class="item-meta">' + esc(p.categoria) + ' · por ' + esc(p.unidade) + '</div></div>' +
+      '<span class="preco-extra">' + formatarReal(p.preco) + '</span>' +
+      '<button type="button" class="remover" data-id="' + p.id + '">Remover</button></div>').join('');
+  }
+  $('lista-extras').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-id]'); if (!b) return;
+    const p = Mercearia.produtoPorId(b.dataset.id);
+    if (!confirm('Remover "' + p.nome + '" do catálogo?')) return;
+    try {
+      await api('POST', 'produto_remover', { id: p.id });
+      ESTADO.produtos = ESTADO.produtos.filter((x) => x.id !== p.id); lista(); avisar('Produto removido');
+    } catch (err) { avisar(err.message); }
+  });
+
+  $('form-produto').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nome = $('p-nome').value.trim(); const preco = $('p-preco').value.trim().replace(',', '.');
+    if (nome.length < 2) { mostrarAba(0); msg('Digite o nome do produto.', true); $('p-nome').focus(); return; }
+    if (!(parseFloat(preco) >= 0.01)) { mostrarAba(0); msg('Informe um preço válido, como 12,90.', true); $('p-preco').focus(); return; }
+    const fd = new FormData();
+    fd.append('nome', nome); fd.append('descricao', $('p-descricao').value.trim()); fd.append('categoria', $('p-categoria').value);
+    fd.append('unidade', $('p-unidade').value); fd.append('preco', preco); fd.append('emoji', $('p-emoji').value.trim());
+    if (imagemBlob) fd.append('imagem', imagemBlob, 'produto.jpg');
+    $('botao-salvar').disabled = true;
+    try {
+      const r = await api('POST', 'produto_criar', fd);
+      ESTADO.produtos.push(r.produto);
+      msg('"' + r.produto.nome + '" cadastrado! Já aparece na página Produtos.', false);
+      $('form-produto').reset(); tirar(); $('contagem').textContent = '0 / 300'; mostrarAba(0); lista();
+    } catch (err) { msg(err.message, true); }
+    $('botao-salvar').disabled = false;
+  });
+  lista();
+});
+
+</script>
+</body>
+</html>

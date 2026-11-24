@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mercearia da Esquina — Login</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="cabecalho">
+  <div class="barra">
+    <a href="index.html" class="marca">
+      <span class="icone">🧺</span>
+      <span>
+        <span class="nome">Mercearia da Esquina</span>
+        <span class="slogan">do seu jeito, desde sempre</span>
+      </span>
+    </a>
+    <nav class="menu" aria-label="Navegação principal"></nav>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <span class="etiqueta">Minha conta</span>
+    <h1>Entre ou crie sua conta</h1>
+    <p>Cadastre-se para ter sua conta na Mercearia da Esquina. Os dados ficam guardados com segurança no banco de dados; a senha é armazenada criptografada.</p>
+  </section>
+
+  <div class="login-envolucro">
+    <div id="area-logado" class="caixote logado" style="display:none;">
+      <div class="grande" aria-hidden="true">👋</div>
+      <h2>Olá, <span id="nome-logado"></span>!</h2>
+      <p>Você está conectado(a) como <strong id="email-logado"></strong>.</p>
+      <div class="acoes">
+        <a class="botao" href="produtos.html">Ver produtos</a>
+        <button type="button" class="botao secundario" id="botao-sair">Sair</button>
+      </div>
+    </div>
+
+    <div id="area-formularios">
+      <div class="abas-login">
+        <button type="button" id="aba-entrar" class="ativo">Entrar</button>
+        <button type="button" id="aba-criar">Criar conta</button>
+      </div>
+      <div class="caixote painel-login">
+        <form id="form-entrar" class="formulario-login ativo">
+          <div class="campo"><label for="entrar-email">E-mail</label>
+            <input type="email" id="entrar-email" placeholder="seuemail@exemplo.com" autocomplete="email" required></div>
+          <div class="campo"><label for="entrar-senha">Senha</label>
+            <input type="password" id="entrar-senha" placeholder="Digite sua senha" autocomplete="current-password" required></div>
+          <button type="submit" class="botao">Entrar</button>
+          <p class="mensagem-login" id="mensagem-entrar" role="status"></p>
+        </form>
+
+        <form id="form-criar" class="formulario-login">
+          <div class="campo"><label for="criar-nome">Nome completo</label>
+            <input type="text" id="criar-nome" maxlength="80" autocomplete="name" required></div>
+          <div class="campo"><label for="criar-email">E-mail</label>
+            <input type="email" id="criar-email" placeholder="seuemail@exemplo.com" autocomplete="email" required></div>
+          <div class="campo"><label for="criar-telefone">Telefone</label>
+            <input type="tel" id="criar-telefone" placeholder="(11) 91234-5678" autocomplete="tel" required></div>
+          <div class="campo"><label for="criar-senha">Senha</label>
+            <input type="password" id="criar-senha" placeholder="Mínimo 6 caracteres" minlength="6" maxlength="72" autocomplete="new-password" required></div>
+          <div class="campo"><label for="criar-confirmar">Confirmar senha</label>
+            <input type="password" id="criar-confirmar" placeholder="Repita a senha" minlength="6" maxlength="72" autocomplete="new-password" required></div>
+          <button type="submit" class="botao">Criar conta</button>
+          <p class="mensagem-login" id="mensagem-criar" role="status"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <div class="conteudo">
+    <span>© 2026 Mercearia da Esquina — Todos os direitos reservados</span>
+    <a href="index.html">Voltar ao início</a>
+  </div>
+</footer>
+
+<script src="js/site.js"></script>
+<script>
+
+Mercearia.pronto.then(() => {
+  const { ESTADO, api, primeiroNome } = Mercearia;
+  const $ = (id) => document.getElementById(id);
+  function aba(qual) {
+    const entrar = qual === 'entrar';
+    $('aba-entrar').classList.toggle('ativo', entrar); $('aba-criar').classList.toggle('ativo', !entrar);
+    $('form-entrar').classList.toggle('ativo', entrar); $('form-criar').classList.toggle('ativo', !entrar);
+  }
+  function msg(el, texto, erro) { el.textContent = texto; el.classList.toggle('erro', !!erro); el.classList.add('mostrar'); }
+  function estado() {
+    const u = ESTADO.usuario;
+    $('area-logado').style.display = u ? 'block' : 'none';
+    $('area-formularios').style.display = u ? 'none' : 'block';
+    if (u) { $('nome-logado').textContent = primeiroNome(u.nome); $('email-logado').textContent = u.email; }
+  }
+  $('aba-entrar').addEventListener('click', () => aba('entrar'));
+  $('aba-criar').addEventListener('click', () => aba('criar'));
+  if (location.hash === '#criar') aba('criar');
+
+  async function enviar(form, rota, corpo, el, boas) {
+    const botao = form.querySelector('button[type=submit]'); botao.disabled = true;
+    try {
+      const r = await api('POST', rota, corpo);
+      ESTADO.usuario = r.usuario;
+      msg(el, boas.replace('{nome}', primeiroNome(r.usuario.nome)), false);
+      setTimeout(() => { location.href = 'index.html'; }, 900);
+    } catch (e) { msg(el, e.message, true); botao.disabled = false; }
+  }
+  $('form-entrar').addEventListener('submit', (e) => {
+    e.preventDefault();
+    enviar(e.target, 'login', { email: $('entrar-email').value, senha: $('entrar-senha').value }, $('mensagem-entrar'), 'Bem-vindo(a) de volta, {nome}! Redirecionando...');
+  });
+  $('form-criar').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if ($('criar-senha').value !== $('criar-confirmar').value) { msg($('mensagem-criar'), 'As senhas não coincidem. Verifique e tente novamente.', true); return; }
+    enviar(e.target, 'cadastro', { nome: $('criar-nome').value, email: $('criar-email').value, telefone: $('criar-telefone').value, senha: $('criar-senha').value },
+      $('mensagem-criar'), 'Conta criada! Você já está conectado(a), {nome}. Redirecionando...');
+  });
+  $('botao-sair').addEventListener('click', async () => {
+    try { await api('POST', 'logout', {}); } catch (e) {}
+    location.reload();
+  });
+  estado();
+});
+
+</script>
+</body>
+</html>

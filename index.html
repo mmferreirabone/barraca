@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mercearia da Esquina — Início</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="cabecalho">
+  <div class="barra">
+    <a href="index.html" class="marca">
+      <span class="icone">🧺</span>
+      <span>
+        <span class="nome">Mercearia da Esquina</span>
+        <span class="slogan">do seu jeito, desde sempre</span>
+      </span>
+    </a>
+    <nav class="menu" aria-label="Navegação principal"></nav>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <span class="etiqueta">Bem-vindo</span>
+    <h1>Tudo fresco, pertinho de você</h1>
+    <p>Conheça o que vendemos: pães quentinhos, bebidas geladas, hortifruti do dia e muito mais. Escolha na página Produtos e acompanhe tudo no carrinho flutuante.</p>
+  </section>
+
+  <section class="carrossel" id="carrossel" role="region" aria-roledescription="carrossel" aria-label="Produtos por categoria" tabindex="0">
+    <button type="button" class="carrossel-seta seta-ant" id="seta-ant" aria-label="Categoria anterior">‹</button>
+    <div class="carrossel-janela"><div class="carrossel-trilho" id="trilho"></div></div>
+    <button type="button" class="carrossel-seta seta-prox" id="seta-prox" aria-label="Próxima categoria">›</button>
+    <div class="carrossel-pontos" id="pontos"></div>
+  </section>
+
+  <section class="chamada" id="chamada">
+    <div>
+      <h2>Ainda não tem conta?</h2>
+      <p>Cadastre-se em menos de um minuto e acompanhe suas compras.</p>
+    </div>
+    <div class="acoes">
+      <a class="botao" href="login.html#criar">Cadastre-se</a>
+      <a class="botao secundario" href="login.html">Já tenho conta</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="rodape">
+  <div class="conteudo">
+    <span>© 2026 Mercearia da Esquina — Todos os direitos reservados</span>
+    <a href="produtos.html">Ver produtos</a>
+  </div>
+</footer>
+
+<script src="js/site.js"></script>
+<script>
+
+Mercearia.pronto.then(() => {
+  const { ESTADO, esc, formatarReal, imagemProdutoHTML, primeiroNome } = Mercearia;
+  const trilho = document.getElementById('trilho');
+  const pontos = document.getElementById('pontos');
+  const carrossel = document.getElementById('carrossel');
+  const categorias = ESTADO.categorias.filter((c) => c.destaque);
+
+  if (!categorias.length) {
+    carrossel.innerHTML = '<p class="vazio">O catálogo ainda não foi carregado.</p>';
+  } else {
+    trilho.innerHTML = categorias.map((c, i) => {
+      const lista = ESTADO.produtos.filter((p) => p.categoria === c.nome);
+      const novos = lista.filter((p) => !p.padrao).reverse();     
+      const mostrar = novos.concat(lista.filter((p) => p.padrao)).slice(0, 4);
+      const arte = c.imagem ? '<img src="' + esc(c.imagem) + '" alt="' + esc(c.nome) + '">' : '<span aria-hidden="true">' + esc(c.emoji) + '</span>';
+      const cartoes = mostrar.length ? mostrar.map((p) =>
+        '<div class="mini-produto"><div class="mini-img">' + imagemProdutoHTML(p) + '</div>' +
+        '<div class="mini-info"><strong>' + esc(p.nome) + '</strong>' +
+        '<span>' + formatarReal(p.preco) + ' / ' + esc(p.unidade) + '</span>' +
+        '<small>' + esc(p.descricao.length > 58 ? p.descricao.slice(0, 55) + '…' : p.descricao) + '</small></div></div>').join('')
+        : '<p>Em breve novidades nesta categoria.</p>';
+      return '<article class="slide" style="--cor-slide:' + esc(c.cor) + '" role="group" aria-roledescription="slide" aria-label="' + (i + 1) + ' de ' + categorias.length + '">' +
+        '<div class="slide-texto"><div class="slide-arte">' + arte + '</div><h2>' + esc(c.nome) + '</h2><p>' + esc(c.frase) + '</p>' +
+        '<a class="botao" href="produtos.html#' + encodeURIComponent(c.nome) + '">Ver ' + esc(c.nome) + '</a></div>' +
+        '<div class="slide-produtos">' + cartoes + '</div></article>';
+    }).join('');
+    pontos.innerHTML = categorias.map((c) => '<button type="button" aria-label="Ir para ' + esc(c.nome) + '"></button>').join('');
+
+    const slides = Array.from(trilho.children);
+    const botoes = Array.from(pontos.children);
+    let atual = 0, timer = null;
+    const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function ir(n) {
+      atual = (n + slides.length) % slides.length;
+      trilho.style.transform = 'translateX(-' + atual * 100 + '%)';
+      slides.forEach((s, k) => { s.inert = k !== atual; s.setAttribute('aria-hidden', String(k !== atual)); });
+      botoes.forEach((b, k) => { b.classList.toggle('ativo', k === atual); if (k === atual) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+    }
+    function parar() { clearInterval(timer); timer = null; }
+    function iniciar() { if (reduzido || timer) return; timer = setInterval(() => ir(atual + 1), 5500); }
+    document.getElementById('seta-ant').addEventListener('click', () => ir(atual - 1));
+    document.getElementById('seta-prox').addEventListener('click', () => ir(atual + 1));
+    botoes.forEach((b, k) => b.addEventListener('click', () => ir(k)));
+    carrossel.addEventListener('mouseenter', parar);
+    carrossel.addEventListener('mouseleave', iniciar);
+    carrossel.addEventListener('focusin', parar);
+    carrossel.addEventListener('focusout', iniciar);
+    carrossel.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') ir(atual - 1);
+      if (e.key === 'ArrowRight') ir(atual + 1);
+    });
+    let x0 = null;
+    carrossel.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; parar(); }, { passive: true });
+    carrossel.addEventListener('touchend', (e) => {
+      if (x0 !== null) { const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) ir(atual + (dx < 0 ? 1 : -1)); }
+      x0 = null; iniciar();
+    });
+    ir(0); iniciar();
+  }
+
+  if (ESTADO.usuario) {
+    document.getElementById('chamada').innerHTML =
+      '<div><h2>Olá, ' + esc(primeiroNome(ESTADO.usuario.nome)) + '!</h2><p>Bom ver você de novo. Escolha seus produtos e monte o carrinho.</p></div>' +
+      '<div class="acoes"><a class="botao" href="produtos.html">Ver produtos</a></div>';
+  }
+});
+
+</script>
+</body>
+</html>

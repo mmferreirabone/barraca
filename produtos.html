@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mercearia da Esquina — Produtos</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="cabecalho">
+  <div class="barra">
+    <a href="index.html" class="marca">
+      <span class="icone">🧺</span>
+      <span>
+        <span class="nome">Mercearia da Esquina</span>
+        <span class="slogan">do seu jeito, desde sempre</span>
+      </span>
+    </a>
+    <nav class="menu" aria-label="Navegação principal"></nav>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <span class="etiqueta">Nosso estoque</span>
+    <h1>Produtos à venda</h1>
+    <p>Veja a descrição e o preço de cada item, escolha a quantidade e adicione ao carrinho flutuante. Os produtos cadastrados pela administração aparecem aqui automaticamente.</p>
+  </section>
+  <div id="filtros" class="submenu-lista" aria-label="Filtrar por categoria"></div>
+  <div id="grade-produtos" class="grade-produtos"></div>
+
+</main>
+
+<footer class="rodape">
+  <div class="conteudo">
+    <span>© 2026 Mercearia da Esquina — Todos os direitos reservados</span>
+    <a href="index.html">Voltar ao início</a>
+  </div>
+</footer>
+
+<script src="js/site.js"></script>
+<script>
+
+Mercearia.pronto.then(() => {
+  const { ESTADO, esc, formatarReal, imagemProdutoHTML, adicionarAoCarrinho, avisar } = Mercearia;
+  const grade = document.getElementById('grade-produtos');
+  const barra = document.getElementById('filtros');
+  const quantidades = {};          
+  let filtro = 'Todos';
+  const hash = decodeURIComponent(location.hash.replace('#', ''));
+  if (ESTADO.categorias.some((c) => c.nome === hash)) filtro = hash;
+
+  function filtros() {
+    const nomes = ['Todos'].concat(ESTADO.categorias.map((c) => c.nome).filter((n) => ESTADO.produtos.some((p) => p.categoria === n)));
+    barra.innerHTML = nomes.map((n) => '<button type="button" data-cat="' + esc(n) + '" class="' + (n === filtro ? 'ativo' : '') + '">' + esc(n) + '</button>').join('');
+  }
+  function desenhar() {
+    const lista = ESTADO.produtos.filter((p) => filtro === 'Todos' || p.categoria === filtro);
+    if (!lista.length) {
+      grade.innerHTML = '<p class="vazio" style="grid-column:1/-1">' + (ESTADO.servidorOk ? 'Nenhum produto nesta categoria.' : 'Não foi possível carregar os produtos.') + '</p>';
+      return;
+    }
+    grade.innerHTML = lista.map((p) => {
+      const q = quantidades[p.id] || 1;
+      return '<article class="produto" data-id="' + p.id + '">' +
+        '<div class="produto-imagem">' + imagemProdutoHTML(p) + '</div>' +
+        '<span class="produto-cat">' + esc(p.categoria) + '</span>' +
+        '<h3>' + esc(p.nome) + '</h3>' +
+        '<p class="produto-desc">' + esc(p.descricao || 'Sem descrição.') + '</p>' +
+        '<div class="linha-preco"><span class="preco">' + formatarReal(p.preco) + '</span><span class="unidade">por ' + esc(p.unidade) + '</span></div>' +
+        '<div class="contador"><button type="button" data-acao="menos" aria-label="Diminuir quantidade de ' + esc(p.nome) + '">−</button>' +
+        '<span class="qtd" aria-live="polite">' + q + '</span>' +
+        '<button type="button" data-acao="mais" aria-label="Aumentar quantidade de ' + esc(p.nome) + '">+</button></div>' +
+        '<button type="button" class="botao" data-acao="add">Adicionar ao carrinho</button></article>';
+    }).join('');
+  }
+  barra.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-cat]'); if (!b) return;
+    filtro = b.dataset.cat; filtros(); desenhar();
+  });
+  grade.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-acao]'); if (!b) return;
+    const cartao = b.closest('.produto'); const id = cartao.dataset.id;
+    const atual = quantidades[id] || 1;
+    if (b.dataset.acao === 'mais') quantidades[id] = Math.min(99, atual + 1);
+    else if (b.dataset.acao === 'menos') quantidades[id] = Math.max(1, atual - 1);
+    else {
+      adicionarAoCarrinho(id, atual);
+      quantidades[id] = 1;
+      avisar(atual + '× ' + Mercearia.produtoPorId(id).nome + ' no carrinho');
+    }
+    cartao.querySelector('.qtd').textContent = quantidades[id] || 1;
+  });
+  filtros(); desenhar();
+});
+
+</script>
+</body>
+</html>

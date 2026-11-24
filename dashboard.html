@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mercearia da Esquina — Dashboard</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-sem-analytics data-sem-carrinho>
+
+<header class="cabecalho">
+  <div class="barra">
+    <a href="index.html" class="marca">
+      <span class="icone">🧺</span>
+      <span>
+        <span class="nome">Mercearia da Esquina</span>
+        <span class="slogan">do seu jeito, desde sempre</span>
+      </span>
+    </a>
+    <nav class="menu" aria-label="Navegação principal"></nav>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <span class="etiqueta">Administração</span>
+    <h1>Dashboard</h1>
+    <p>Os números vêm do banco de dados e se atualizam sozinhos a cada 15 segundos.</p>
+  </section>
+  <div id="bloqueio" class="caixote vazio" hidden></div>
+  <div id="area-admin" hidden>
+    <section class="cartoes-estat" id="cartoes"></section>
+    <section class="painel-duas">
+      <div class="caixote"><h2>Acessos nos últimos 7 dias</h2><div class="grafico-barras" id="grafico"></div></div>
+      <div class="caixote"><h2>Páginas mais visitadas</h2><ol class="rank" id="paginas"></ol>
+        <p class="vazio" id="paginas-vazio">Nenhum acesso registrado ainda.</p></div>
+    </section>
+    <section class="caixote"><h2>Itens mais vendidos</h2><ol class="rank" id="vendidos"></ol>
+      <p class="vazio" id="vendidos-vazio">Ainda não há vendas. Finalize uma compra no carrinho para ver o ranking.</p></section>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <div class="conteudo">
+    <span>© 2026 Mercearia da Esquina — Todos os direitos reservados</span>
+    <a href="cadastro-produto.html">Cadastrar produto</a>
+  </div>
+</footer>
+
+<script src="js/site.js"></script>
+<script>
+
+Mercearia.pronto.then(() => {
+  const { ESTADO, api, esc, formatarReal } = Mercearia;
+  const $ = (id) => document.getElementById(id);
+  if (!ESTADO.usuario || !ESTADO.usuario.admin) {
+    const b = $('bloqueio'); b.hidden = false;
+    b.innerHTML = !ESTADO.servidorOk ? 'Não foi possível falar com o servidor.'
+      : !ESTADO.usuario ? 'Esta página é só para a administração. <a href="login.html">Entre com sua conta</a>.'
+      : 'Sua conta não tem permissão de administrador.';
+    return;
+  }
+  $('area-admin').hidden = false;
+  const NOMES = { 'index.html': 'Início', 'produtos.html': 'Produtos', 'sobre.html': 'Sobre', 'contato.html': 'Contato', 'login.html': 'Login' };
+  function duracao(ms) {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return s + ' s';
+    const m = Math.floor(s / 60);
+    return m < 60 ? m + ' min ' + String(s % 60).padStart(2, '0') + ' s' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min';
+  }
+  function ranking(el, itens, sufixo) {
+    const maior = Math.max(1, ...itens.map((i) => i.valor));
+    el.innerHTML = itens.map((i, k) => '<li><span class="pos">' + (k + 1) + 'º</span><div><strong>' + esc(i.rotulo) + '</strong>' +
+      (i.detalhe ? '<div class="item-meta">' + esc(i.detalhe) + '</div>' : '') +
+      '<div class="trilha"><div class="preenche" style="width:' + Math.round(i.valor / maior * 100) + '%"></div></div></div>' +
+      '<span class="qtd-vendida">' + i.valor + sufixo + '</span></li>').join('');
+  }
+  async function atualizar() {
+    let p;
+    try { p = await api('GET', 'painel'); } catch (e) { $('cartoes').innerHTML = '<p class="mensagem-login erro mostrar">' + esc(e.message) + '</p>'; return; }
+    const cartoes = [
+      ['Acessos ao site', p.acessos, p.visitantes + (p.visitantes === 1 ? ' visitante distinto' : ' visitantes distintos')],
+      ['Cadastrados', p.cadastros, p.cadastros === 1 ? 'usuário cadastrado' : 'usuários cadastrados'],
+      ['Tempo médio de login', p.tempoMedioLoginMs === null ? '—' : duracao(p.tempoMedioLoginMs),
+        p.loginsRegistrados ? p.loginsRegistrados + (p.loginsRegistrados === 1 ? ' login registrado' : ' logins registrados') : 'nenhum login ainda'],
+      ['Pedidos', p.pedidos, formatarReal(p.faturamento) + ' em vendas'],
+    ];
+    $('cartoes').innerHTML = cartoes.map((c) => '<div class="estat"><div class="rotulo">' + c[0] + '</div><div class="numero">' + c[1] + '</div><div class="detalhe">' + c[2] + '</div></div>').join('');
+    const maior = Math.max(1, ...p.acessosPorDia.map((d) => d.total));
+    $('grafico').innerHTML = p.acessosPorDia.map((d) => '<div class="coluna-barra"><span class="valor-barra">' + d.total + '</span><div class="area-barra"><div class="barra-v" style="height:' + Math.round(d.total / maior * 100) + '%"></div></div><span class="rotulo-barra">' + d.rotulo + '</span></div>').join('');
+    $('paginas-vazio').style.display = p.paginas.length ? 'none' : 'block';
+    ranking($('paginas'), p.paginas.map((x) => ({ rotulo: NOMES[x.pagina] || x.pagina, valor: x.total })), '');
+    $('vendidos-vazio').style.display = p.maisVendidos.length ? 'none' : 'block';
+    ranking($('vendidos'), p.maisVendidos.map((v) => ({ rotulo: v.nome, valor: v.quantidade, detalhe: formatarReal(v.receita) + ' em vendas' })), ' vendidos');
+  }
+  atualizar(); setInterval(atualizar, 15000);
+});
+
+</script>
+</body>
+</html>
